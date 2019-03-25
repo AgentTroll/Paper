@@ -1,4 +1,4 @@
-From c793973ddc0690b434945f844250b8e79d3bf60d Mon Sep 17 00:00:00 2001
+From 01abbf425677bc6dbfe5159b84545fb3bbd1a036 Mon Sep 17 00:00:00 2001
 From: Aikar <aikar@aikar.co>
 Date: Sun, 24 Mar 2019 01:01:32 -0400
 Subject: [PATCH] Only count Natural Spawned mobs towards natural spawn mob
@@ -16,8 +16,27 @@ worse than vanilla.
 This should fully solve all of the issues around it so that only natural
 influences natural spawns.
 
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index f259c4e51..fa1d88aa8 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -594,4 +594,14 @@ public class PaperWorldConfig {
+             log("Using vanilla redstone algorithm.");
+         }
+     }
++
++    public boolean countAllMobsForSpawning = false;
++    private void countAllMobsForSpawning() {
++        countAllMobsForSpawning = getBoolean("count-all-mobs-for-spawning", false);
++        if (countAllMobsForSpawning) {
++            log("Counting all mobs for spawning. Mob farms may reduce natural spawns elsewhere in world.");
++        } else {
++            log("Using improved mob spawn limits (Only Natural Spawns impact spawn limits for more natural spawns)");
++        }
++    }
+ }
 diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldEntityList.java b/src/main/java/com/destroystokyo/paper/PaperWorldEntityList.java
-index a10a5bc138..8ad00c7d11 100644
+index a10a5bc13..a5a63f800 100644
 --- a/src/main/java/com/destroystokyo/paper/PaperWorldEntityList.java
 +++ b/src/main/java/com/destroystokyo/paper/PaperWorldEntityList.java
 @@ -7,6 +7,7 @@ import net.minecraft.server.IAnimal;
@@ -28,13 +47,17 @@ index a10a5bc138..8ad00c7d11 100644
  
  import java.util.ArrayList;
  import java.util.Collection;
-@@ -90,7 +91,8 @@ public class PaperWorldEntityList extends ArrayList<Entity> {
+@@ -90,7 +91,12 @@ public class PaperWorldEntityList extends ArrayList<Entity> {
      }
  
      public void updateEntityCount(Entity entity, int amt) {
 -        if (!(entity instanceof IAnimal)) return;
 +        // Only count natural spawns so that mob
-+        if (!(entity instanceof IAnimal) || entity.spawnReason != SpawnReason.NATURAL) return;
++        if (!(entity instanceof IAnimal) || (
++            !world.paperConfig.countAllMobsForSpawning &&
++            entity.spawnReason != SpawnReason.NATURAL &&
++            entity.spawnReason != SpawnReason.CHUNK_GEN
++        )) return;
  
          if (entity instanceof EntityInsentient) {
              EntityInsentient entityinsentient = (EntityInsentient) entity;
